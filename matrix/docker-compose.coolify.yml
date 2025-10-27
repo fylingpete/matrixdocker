@@ -1,0 +1,92 @@
+version: '3'
+
+# This version uses Coolify's existing Traefik proxy
+networks:
+  coolify:
+    external: true
+    name: coolify
+
+services:
+  nginx:
+    image: "nginx:${NGINX_VERSION}"
+    restart: "always"
+    platform: linux/arm64
+    networks:
+      - coolify
+      - default
+    volumes:
+      - nginx_conf:/etc/nginx/conf.d
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.matrix-nginx.rule=Host(`${DOMAIN}`)
+      - traefik.http.routers.matrix-nginx.entrypoints=websecure
+      - traefik.http.routers.matrix-nginx.tls=true
+      - traefik.http.routers.matrix-nginx.tls.certresolver=letsencrypt
+      - traefik.http.services.matrix-nginx.loadbalancer.server.port=80
+
+  synapse:
+    image: "docker.io/matrixdotorg/synapse:${SYNAPSE_VERSION}"
+    restart: unless-stopped
+    platform: linux/arm64
+    networks:
+      - coolify
+      - default
+    environment:
+      - SYNAPSE_CONFIG_PATH=/data/homeserver.yaml
+    volumes:
+      - synapse_data:/data
+    depends_on:
+      - synapse_db
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.matrix-synapse.rule=Host(`matrix.${DOMAIN}`)
+      - traefik.http.routers.matrix-synapse.entrypoints=websecure
+      - traefik.http.routers.matrix-synapse.tls=true
+      - traefik.http.routers.matrix-synapse.tls.certresolver=letsencrypt
+      - traefik.http.services.matrix-synapse.loadbalancer.server.port=8008
+
+  synapse_db:
+    image: "docker.io/postgres:${POSTGRES_VERSION}"
+    restart: unless-stopped
+    platform: linux/arm64
+    environment:
+      - POSTGRES_USER=synapse
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    volumes:
+      - synapse_db_data:/var/lib/postgresql/data
+
+  coturn:
+    image: "coturn/coturn:${COTURN_VERSION}"
+    restart: "unless-stopped"
+    platform: linux/arm64
+    volumes:
+      - coturn:/etc/coturn
+    ports:
+      - "49160-49200:49160-49200/udp"
+      - "3478:3478"
+      - "5349:5349"
+
+  element:
+    image: "vectorim/element-web:${ELEMENT_VERSION}"
+    restart: unless-stopped
+    platform: linux/arm64
+    networks:
+      - coolify
+      - default
+    volumes:
+      - element:/app
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.matrix-element.rule=Host(`web.${DOMAIN}`)
+      - traefik.http.routers.matrix-element.entrypoints=websecure
+      - traefik.http.routers.matrix-element.tls=true
+      - traefik.http.routers.matrix-element.tls.certresolver=letsencrypt
+      - traefik.http.services.matrix-element.loadbalancer.server.port=80
+
+volumes:
+  nginx_conf:
+  synapse_data:
+  synapse_db_data:
+  coturn:
+  element:
