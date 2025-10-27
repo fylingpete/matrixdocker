@@ -4,6 +4,7 @@ services:
   traefik:
     image: "traefik:${TRAEFIK_VERSION}"
     restart: "always"
+    platform: linux/arm64
     command:
       - "--api=true"
       - "--providers.docker=true"
@@ -26,6 +27,7 @@ services:
   nginx:
     image: "nginx:${NGINX_VERSION}"
     restart: "always"
+    platform: linux/arm64
     volumes:
       - nginx_conf:/etc/nginx/conf.d
     labels:
@@ -38,6 +40,7 @@ services:
   synapse:
     image: "docker.io/matrixdotorg/synapse:${SYNAPSE_VERSION}"
     restart: unless-stopped
+    platform: linux/arm64
     environment:
       - SYNAPSE_CONFIG_PATH=/data/homeserver.yaml
     volumes:
@@ -54,6 +57,7 @@ services:
   synapse_db:
     image: "docker.io/postgres:${POSTGRES_VERSION}"
     restart: unless-stopped
+    platform: linux/arm64
     environment:
       - POSTGRES_USER=synapse
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -62,8 +66,9 @@ services:
       - synapse_db_data:/var/lib/postgresql/data
 
   coturn:
-    image: "instrumentisto/coturn:${COTURN_VERSION}"
+    image: "coturn/coturn:${COTURN_VERSION}"
     restart: "unless-stopped"
+    platform: linux/arm64
     volumes:
       - coturn:/etc/coturn
     ports:
@@ -74,6 +79,7 @@ services:
   element:
     image: "vectorim/element-web:${ELEMENT_VERSION}"
     restart: unless-stopped
+    platform: linux/arm64
     volumes:
       - element:/app
     labels:
